@@ -1,3 +1,4 @@
+import hashlib
 import time
 
 import pytest
@@ -14,7 +15,9 @@ def test_demo_scenario_matches_declared_status(scenario_id: str) -> None:
     for index, amount in enumerate(scenario.committed_today_usd):
         preload = store.reserve(
             session_id=scenario.scope.session_id,
+            budget_scope_id=scenario.engine.budget_scope_id,
             intent_id=f"preloaded_{index}",
+            intent_hash=hashlib.sha256(f"preloaded_{index}".encode()).hexdigest(),
             amount_usd=amount,
             daily_limit_usd=scenario.scope.daily_budget_usd,
             weekly_limit_usd=scenario.engine.weekly_budget_usd,

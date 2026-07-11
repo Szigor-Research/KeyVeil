@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import time
 from dataclasses import asdict
@@ -8,7 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from agent_wallet import InMemoryBudgetStore, evaluate_payment
 
@@ -18,12 +19,14 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 class SimulateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     scenario: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9_-]+$")
 
 
 app = FastAPI(
     title="KeyVeil Policy Reference",
-    version="0.2.0",
+    version="0.3.0",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
@@ -47,7 +50,7 @@ async def security_headers(request: Request, call_next) -> Response:
 
 @app.get("/health")
 async def health() -> JSONResponse:
-    return JSONResponse({"ok": True, "mode": "synthetic-reference", "version": "0.2.0"})
+    return JSONResponse({"ok": True, "mode": "synthetic-reference", "version": "0.3.0"})
 
 
 @app.get("/api/scenarios")
@@ -70,7 +73,9 @@ async def api_simulate(body: SimulateBody) -> JSONResponse:
     for index, amount in enumerate(scenario.committed_today_usd):
         preload = budget_store.reserve(
             session_id=scenario.scope.session_id,
+            budget_scope_id=scenario.engine.budget_scope_id,
             intent_id=f"preloaded_{index}",
+            intent_hash=hashlib.sha256(f"preloaded_{index}".encode()).hexdigest(),
             amount_usd=amount,
             daily_limit_usd=scenario.scope.daily_budget_usd,
             weekly_limit_usd=scenario.engine.weekly_budget_usd,

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "keyveil-policy"
-version = "0.2.0"
+version = "0.3.0"
 description = "Fail-closed policy decisions, atomic budget reservations, and hashed receipts for AI-agent payment intents"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,12 +25,12 @@ dependencies = []
 
 [project.optional-dependencies]
 demo = [
-  "fastapi>=0.115,<0.139",
+  "fastapi>=0.115,<0.140",
   "pydantic>=2.8,<3",
   "uvicorn>=0.30,<1",
 ]
 dev = [
-  "fastapi>=0.115,<0.139",
+  "fastapi>=0.115,<0.140",
   "httpx2>=2,<3",
   "pydantic>=2.8,<3",
   "pytest>=8,<10",

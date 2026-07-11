@@ -40,8 +40,9 @@ to a separate, explicitly trusted adapter.
 - Fail-closed session recipient and token allowlists.
 - Immutable organization policy with optional global constraints.
 - Intent-bound, expiring HMAC approval grants for the local reference flow.
-- Thread-safe daily and weekly budget reservations with intent idempotency.
-- Versioned decision receipts with policy, session, approval, and reservation context.
+- Thread-safe daily and weekly budget reservations with full-intent idempotency.
+- Versioned decision receipts with a canonical intent hash and policy, session,
+  approval, and reservation context.
 - Canonical SHA-256 receipt hashes for tamper detection.
 - Synthetic FastAPI scenarios and a responsive decision-workbench demo.
 
@@ -93,7 +94,8 @@ scope = SessionScope(
 )
 policy = PolicyEngine.from_defaults(
     policy_version="owner-policy-v1",
-    per_tx_confirm_above_usd=3.0,
+    budget_scope_id="owner-organization",
+    approval_threshold_usd=3.0,
     whitelist_recipients=frozenset({recipient}),
     allowed_tokens=frozenset({"USDC"}),
 )

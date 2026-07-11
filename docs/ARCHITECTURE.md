@@ -8,21 +8,21 @@ material, or transaction data.
 
 | Component | Responsibility |
 |---|---|
-| `PaymentIntent` | Validated request with stable intent and task identifiers. |
+| `PaymentIntent` | Validated, versioned request with stable intent and task identifiers. |
 | `SessionScope` | Expiry, agent binding, per-transaction limit, daily budget, and explicit allowlists. |
-| `PolicyEngine` | Immutable organization rules and the approval threshold. |
+| `PolicyEngine` | Immutable organization rules, approval threshold, and explicit budget scope. |
 | `ApprovalVerifier` | Independently verifies an intent-bound approval grant. |
 | `BudgetStore` | Atomically reserves, commits, or releases budget by intent id. |
-| `PaymentReceipt` | Records the decision context and a canonical SHA-256 hash. |
+| `PaymentReceipt` | Records the complete canonical intent, decision context, and a SHA-256 integrity hash. |
 
 ## Authorization sequence
 
 1. Constructing an intent rejects empty identifiers and non-finite or non-positive amounts.
 2. The session rejects paused, expired, mismatched-agent, recipient, token, and method violations.
 3. Organization policy applies additional recipient, token, transaction, and pause gates.
-4. Amounts at or above the confirmation threshold require a verified approval grant.
-5. Approved decisions reserve daily and weekly budget atomically.
-6. A versioned receipt records the decision and reservation context.
+4. Amounts at or above the confirmation threshold require a versioned approval grant bound to the versioned canonical intent hash, session, policy version, and budget scope.
+5. Approved decisions reserve session-daily and budget-scope-weekly capacity atomically; repeated ids in a budget scope must match the full intent payload and session.
+6. A versioned receipt records the complete intent, its canonical hash, and the decision and reservation context.
 
 ## Reservation lifecycle
 
@@ -34,9 +34,10 @@ reserved -> released    external execution failed permanently
 ```
 
 The reference `InMemoryBudgetStore` is thread-safe and intent-idempotent, but
-it is process-local. Production adapters should implement `BudgetStore` using
-a transactional database and a uniqueness constraint on `(session_id,
-intent_id)`.
+it is process-local. Daily totals are keyed by `session_id`; weekly totals are
+shared by sessions with the same `budget_scope_id`. Production adapters should
+implement `BudgetStore` using a transactional database and a uniqueness
+constraint on `(budget_scope_id, intent_id)`.
 
 ## Trust boundaries
 
