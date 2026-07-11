@@ -22,11 +22,8 @@ def evaluate_payment(
     """Evaluate one intent and reserve budget when the decision is approved."""
     now = int(time.time()) if now_epoch is None else now_epoch
 
-    approval_verified = bool(
-        approval
-        and approval_verifier
-        and approval_verifier.verify(approval, intent, now_epoch=now)
-    )
+    approval_verified = False
+    approval_verifier_failed = False
 
     def receipt(
         status: DecisionStatus,
@@ -40,6 +37,7 @@ def evaluate_payment(
             status=status,
             intent=intent,
             session_id=scope.session_id,
+            budget_scope_id=engine.budget_scope_id,
             policy_version=engine.policy_version,
             policy_hits=policy_hits,
             risk_notes=risk_notes,
@@ -90,12 +88,45 @@ def evaluate_payment(
         token=intent.token,
         amount_usd=intent.amount_usd,
         session_max_per_tx=scope.max_per_tx_usd,
-        approval_verified=approval_verified,
+        approval_verified=False,
     )
+    if decision.status == "blocked":
+        return receipt(decision.status, decision.policy_hits, decision.risk_notes)
+
+    if decision.status == "pending_human":
+        if approval is not None and approval_verifier is not None:
+            try:
+                approval_verified = bool(
+                    approval_verifier.verify(
+                        approval,
+                        intent,
+                        session_id=scope.session_id,
+                        policy_version=engine.policy_version,
+                        budget_scope_id=engine.budget_scope_id,
+                        now_epoch=now,
+                    )
+                )
+            except Exception:
+                approval_verifier_failed = True
+
+        if approval_verified:
+            decision = engine.evaluate(
+                recipient=intent.recipient,
+                token=intent.token,
+                amount_usd=intent.amount_usd,
+                session_max_per_tx=scope.max_per_tx_usd,
+                approval_verified=True,
+            )
+        else:
+            notes = decision.risk_notes
+            if approval is not None:
+                notes += ("provided approval grant could not be verified",)
+            if approval_verifier_failed:
+                notes += ("approval verifier failed closed",)
+            return receipt(decision.status, decision.policy_hits, notes)
+
     if decision.status != "approved":
         notes = decision.risk_notes
-        if approval is not None and not approval_verified:
-            notes += ("provided approval grant could not be verified",)
         return receipt(decision.status, decision.policy_hits, notes)
 
     if budget_store is None:
@@ -105,14 +136,23 @@ def evaluate_payment(
             ("approved decisions require an atomic budget store",),
         )
 
-    budget = budget_store.reserve(
-        session_id=scope.session_id,
-        intent_id=intent.intent_id,
-        amount_usd=intent.amount_usd,
-        daily_limit_usd=scope.daily_budget_usd,
-        weekly_limit_usd=engine.weekly_budget_usd,
-        now_epoch=now,
-    )
+    try:
+        budget = budget_store.reserve(
+            session_id=scope.session_id,
+            budget_scope_id=engine.budget_scope_id,
+            intent_id=intent.intent_id,
+            intent_hash=intent.canonical_digest(),
+            amount_usd=intent.amount_usd,
+            daily_limit_usd=scope.daily_budget_usd,
+            weekly_limit_usd=engine.weekly_budget_usd,
+            now_epoch=now,
+        )
+    except Exception:
+        return receipt(
+            "blocked",
+            ("budget_store_error",),
+            ("budget reservation failed closed",),
+        )
     if not budget.approved or budget.reservation is None:
         return receipt(
             "blocked",

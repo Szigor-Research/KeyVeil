@@ -13,8 +13,13 @@ from .audit_receipt import PaymentIntent
 
 @dataclass(frozen=True)
 class ApprovalGrant:
+    schema_version: str
     approval_id: str
     intent_id: str
+    intent_hash: str
+    session_id: str
+    policy_version: str
+    budget_scope_id: str
     approved_by: str
     issued_at_epoch: int
     expires_at_epoch: int
@@ -22,7 +27,16 @@ class ApprovalGrant:
 
 
 class ApprovalVerifier(Protocol):
-    def verify(self, grant: ApprovalGrant, intent: PaymentIntent, *, now_epoch: int) -> bool: ...
+    def verify(
+        self,
+        grant: ApprovalGrant,
+        intent: PaymentIntent,
+        *,
+        session_id: str,
+        policy_version: str,
+        budget_scope_id: str,
+        now_epoch: int,
+    ) -> bool: ...
 
 
 class HmacApprovalAuthority:
@@ -45,7 +59,10 @@ class HmacApprovalAuthority:
     def issue(
         self,
         *,
-        intent_id: str,
+        intent: PaymentIntent,
+        session_id: str,
+        policy_version: str,
+        budget_scope_id: str,
         approved_by: str,
         now_epoch: int | None = None,
         ttl_seconds: int = 300,
@@ -54,23 +71,59 @@ class HmacApprovalAuthority:
         if ttl_seconds <= 0:
             raise ValueError("ttl_seconds must be positive")
         unsigned = ApprovalGrant(
+            schema_version="keyveil.approval.v1",
             approval_id=f"approval_{uuid.uuid4().hex}",
-            intent_id=intent_id.strip(),
+            intent_id=intent.intent_id,
+            intent_hash=intent.canonical_digest(),
+            session_id=session_id.strip(),
+            policy_version=policy_version.strip(),
+            budget_scope_id=budget_scope_id.strip(),
             approved_by=approved_by.strip(),
             issued_at_epoch=now,
             expires_at_epoch=now + ttl_seconds,
             signature="",
         )
-        if not unsigned.intent_id or not unsigned.approved_by:
-            raise ValueError("intent_id and approved_by must not be empty")
+        if not all(
+            (
+                unsigned.session_id,
+                unsigned.policy_version,
+                unsigned.budget_scope_id,
+                unsigned.approved_by,
+            )
+        ):
+            raise ValueError(
+                "session_id, policy_version, budget_scope_id, and approved_by must not be empty"
+            )
         return ApprovalGrant(**{**asdict(unsigned), "signature": self._signature(unsigned)})
 
-    def verify(self, grant: ApprovalGrant, intent: PaymentIntent, *, now_epoch: int) -> bool:
-        if grant.intent_id != intent.intent_id:
+    def verify(
+        self,
+        grant: ApprovalGrant,
+        intent: PaymentIntent,
+        *,
+        session_id: str,
+        policy_version: str,
+        budget_scope_id: str,
+        now_epoch: int,
+    ) -> bool:
+        try:
+            if grant.schema_version != "keyveil.approval.v1":
+                return False
+            if grant.intent_id != intent.intent_id:
+                return False
+            if grant.intent_hash != intent.canonical_digest():
+                return False
+            if grant.session_id != session_id:
+                return False
+            if grant.policy_version != policy_version:
+                return False
+            if grant.budget_scope_id != budget_scope_id:
+                return False
+            if grant.issued_at_epoch > now_epoch or now_epoch >= grant.expires_at_epoch:
+                return False
+            expected = self._signature(
+                ApprovalGrant(**{**asdict(grant), "signature": ""})
+            )
+            return hmac.compare_digest(grant.signature, expected)
+        except (AttributeError, TypeError, ValueError):
             return False
-        if grant.issued_at_epoch > now_epoch or now_epoch >= grant.expires_at_epoch:
-            return False
-        expected = self._signature(
-            ApprovalGrant(**{**asdict(grant), "signature": ""})
-        )
-        return hmac.compare_digest(grant.signature, expected)

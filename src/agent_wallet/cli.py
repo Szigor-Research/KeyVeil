@@ -25,7 +25,8 @@ def main() -> None:
     )
     engine = PolicyEngine.from_defaults(
         policy_version="cli-reference-v1",
-        per_tx_confirm_above_usd=3.0,
+        budget_scope_id="cli-reference-organization",
+        approval_threshold_usd=3.0,
         whitelist_recipients=scope.allowed_recipients,
         allowed_tokens=scope.allowed_tokens,
     )

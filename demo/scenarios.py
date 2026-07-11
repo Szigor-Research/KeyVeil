@@ -55,10 +55,11 @@ def demo_scope(
     )
 
 
-def demo_engine(*, per_tx_confirm_above_usd: float = 20.0) -> PolicyEngine:
+def demo_engine(*, approval_threshold_usd: float = 20.0) -> PolicyEngine:
     return PolicyEngine.from_defaults(
         policy_version="reference-policy-v1",
-        per_tx_confirm_above_usd=per_tx_confirm_above_usd,
+        budget_scope_id="reference-organization",
+        approval_threshold_usd=approval_threshold_usd,
         whitelist_recipients=frozenset({VENDOR_MAIN, VENDOR_ALT}),
         allowed_tokens=frozenset({"USDC"}),
         weekly_budget_usd=100.0,
@@ -225,7 +226,10 @@ def build_scenario(scenario_id: str) -> Scenario:
         )
         authority = HmacApprovalAuthority(DEMO_APPROVAL_KEY)
         approval = authority.issue(
-            intent_id=intent.intent_id,
+            intent=intent,
+            session_id="reference_session",
+            policy_version="reference-policy-v1",
+            budget_scope_id="reference-organization",
             approved_by="reference-owner",
             now_epoch=now,
         )
@@ -235,7 +239,7 @@ def build_scenario(scenario_id: str) -> Scenario:
             expected_status="approved",
             log_lines=(
                 "Intent requests 30 USDC",
-                "Approval grant is bound to the intent id",
+                "Approval grant is bound to the canonical intent hash",
                 "HMAC signature and expiry validate",
                 "Budget reservation completes after approval verification",
             ),
@@ -321,7 +325,8 @@ def list_scenario_meta() -> list[dict[str, object]]:
                 "expected_status": scenario.expected_status,
                 "max_per_tx_usd": scenario.scope.max_per_tx_usd,
                 "daily_budget_usd": scenario.scope.daily_budget_usd,
-                "approval_threshold_usd": scenario.engine.per_tx_confirm_above_usd,
+                "approval_threshold_usd": scenario.engine.approval_threshold_usd,
+                "budget_scope_id": scenario.engine.budget_scope_id,
                 "allowed_tokens": sorted(scenario.scope.allowed_tokens),
             }
         )

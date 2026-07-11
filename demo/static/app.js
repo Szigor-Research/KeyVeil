@@ -12,6 +12,7 @@ const hashState = document.getElementById("hash-state");
 const metaScenario = document.getElementById("meta-scenario");
 const metaCap = document.getElementById("meta-cap");
 const metaDaily = document.getElementById("meta-daily");
+const metaBudgetScope = document.getElementById("meta-budget-scope");
 const metaApproval = document.getElementById("meta-approval");
 const metaToken = document.getElementById("meta-token");
 const intentAmount = document.getElementById("intent-amount");
@@ -52,6 +53,7 @@ function applyScenarioMeta(scenario) {
   metaScenario.textContent = scenario.id;
   metaCap.textContent = money(scenario.max_per_tx_usd);
   metaDaily.textContent = money(scenario.daily_budget_usd);
+  metaBudgetScope.textContent = scenario.budget_scope_id || "-";
   metaApproval.textContent = money(scenario.approval_threshold_usd);
   metaToken.textContent = (scenario.allowed_tokens || []).join(", ") || "-";
 }

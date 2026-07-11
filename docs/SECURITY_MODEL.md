@@ -5,9 +5,14 @@
 - An agent cannot expand its session recipient, token, method, amount, or time scope.
 - Non-finite, zero, and negative monetary values fail before policy evaluation.
 - Human approval is not a caller-provided boolean.
-- Repeating an intent id does not reserve budget twice.
+- Approval grants are bound to the complete intent, session, policy version, and budget scope.
+- Canonical intent and approval payloads carry explicit schema versions.
+- Repeating an identical intent does not reserve budget twice; reusing its id with a changed payload is blocked.
+- Weekly capacity is shared by sessions in the same explicit budget scope.
 - A decision fails closed when no budget store is available.
-- Receipt mutations are detectable by recomputing the canonical hash.
+- Approval-verifier and budget-store failures return non-approved receipts instead of escaping the decision flow.
+- Receipt mutations are detectable by recomputing the receipt hash; the embedded
+  canonical intent fields can also be checked against `intent_hash`.
 
 ## Explicit non-goals
 
@@ -39,6 +44,9 @@ evidence is required.
 - Negative, zero, infinite, and NaN amounts.
 - Empty session allowlists.
 - Forged and mismatched approval grants.
+- Cross-session, cross-policy, and cross-budget-scope approval replay.
+- Malformed grants and unavailable approval or budget dependencies.
 - Session expiry, pause, agent mismatch, token, recipient, and method violations.
 - Daily budget exhaustion and repeated intent ids.
+- Cross-session weekly exhaustion and concurrent reservation pressure.
 - Receipt field mutation.
