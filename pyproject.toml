@@ -9,7 +9,7 @@ description = "Fail-closed policy decisions, atomic budget reservations, and has
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-authors = [{ name = "Jinstone Labs" }]
+authors = [{ name = "Fanrui Kong" }]
 keywords = ["ai-agents", "payments", "policy-engine", "audit", "fintech"]
 classifiers = [
   "Development Status :: 3 - Alpha",

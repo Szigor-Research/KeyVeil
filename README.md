@@ -147,7 +147,7 @@ HMAC approval authority demonstrate contracts; production deployments should
 replace them with durable, transactional stores and an independently secured
 approval service.
 
-A public reference from [Jinstone Labs](https://github.com/LASZLO-Quantification).
+A public reference from [Szigor Research](https://github.com/LASZLO-Quantification).
 
 ## License
 
